@@ -1,13 +1,13 @@
-best <- function(state = "CO", 
-                 outcomeName = "heart attack") {
+best <- function(state = NA, 
+                 outcomeName = NA) {
     ## Read outcome data; suppress NAs
     outcomeDF <<- read.csv("./data/outcome-of-care-measures.csv", colClasses = "character")
-    outcomeDF <<- na.omit(outcomeDF)
+
     ## upper case the state argument; upper case the state column; 
     ## Check that state is present in the data
     state <- toupper(state)
     outcomeDF$State <- toupper(outcomeDF$State)
-    if (!state %in% outcomeDF$State) {
+    if (is.na(state) || !state %in% outcomeDF$State) {
 ##        message("ERROR: state not found in outcome-of-care-measures.csv")
         stop("invalid state")
     }
@@ -29,5 +29,12 @@ best <- function(state = "CO",
     }
     ## Return hospital name in that state with lowest 30-day death rate
     
-    return(bestHospital)
+    ## Subset the data by state and outcome
+    outcomeSubset <- outcomeDF[outcomeDF$State==state,columnIdx]
+    ## remove the larger data frame
+    ## cast the outcome column to numeric and suppress the warnings about NAs
+    outcomeSubset <- suppressWarnings(as.numeric(outcomeSubset))
+    ##omit NAs
+    outcomeSubset <- na.omit(outcomeSubset)
+ #   return(bestHospital)
 }
