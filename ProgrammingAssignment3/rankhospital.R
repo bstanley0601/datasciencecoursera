@@ -1,9 +1,7 @@
-## The best() function reads the outcome-of-care-measures.csv
-## file and returns a character vector with the name of the 
-## hospital that has the best (i.e. lowest) 30-day mortality 
-## for the specied outcome in the specified state. 
+### comments about function
 
 library(data.table); library(plyr); library(dplyr)
+
  
 validate_state <- function(state) {
     ## Check that state is present in the data    
@@ -12,6 +10,7 @@ validate_state <- function(state) {
         stop("invalid state")
     }
 }
+
 
 validate_outcome <- function(outcomeName) {
     ## Check that outcomeName is valid and set the column index 
@@ -36,10 +35,16 @@ validate_outcome <- function(outcomeName) {
     }
 }
 
+validate_num <- function(num, state) {
+    ## Check that num is "best", "worst", or a number
+        if (is.na(num) || (!(num == "best" || num == "worst" || is.numeric(num)))) {
+            stop("invalid num")
+        }
+}
+
 ###MAIN
 
-best <- function(state = NA, 
-                 outcomeName = NA) {
+rankhospital <- function(state, outcomeName, num) {
 
 ## Read outcome data
 	outcomeDF <<- read.csv("./data/outcome-of-care-measures.csv", 
@@ -54,47 +59,49 @@ best <- function(state = NA,
 ## Validate the arguments
 	validate_state(state)
 	validate_outcome(outcomeName)
-	    
-        
+	validate_num(num,state)
+
+    if (is.numeric(num) && (num > nrow(outcomeDF[outcomeDF$State==state,]) || num == 0)) {
+		num <- NA
+		return(num)		
+    } else {
+		num <= paste(num,"L", sep="")
+	}
+
 ## Subset the data by state and outcome
     outcomeSubset <- outcomeDF[outcomeDF$State==state,c(2,columnIdx,7)]
-    ## remove the larger data frame
-    ## rm(outcomeDF)
 
 ## Rename the outcome column to something useful
     colnames(outcomeSubset)[2] <- "OutCome"
 
 ## cast the outcome column to numeric and suppress the warnings about NAs
     outcomeSubset$OutCome <- suppressWarnings(as.numeric(outcomeSubset$OutCome))
-    
-##omit NAs
+
+## omit NAs
     outcomeSubset <- na.omit(outcomeSubset)
 
-## get best using arrange then head the first record
-    outcomeSort <- arrange(outcomeSubset, OutCome, Hospital.Name)
-    outcomeBest <- head(outcomeSort, 1L)
-
-    
-## Return hospital name in that state with lowest 30-day death rate
-	outcomeBest$Hospital.Name
-    
+## add column for rank of hospital by outcome
+##	outcomeRank <- as.data.table(outcomeSubset)
+##	outcomeRank[,Hospital.Rank:=rank(OutCome,ties.method="first"),]
+	
+## Return the desired record
+	if (num == "best") {
+		pick <- head(arrange(outcomeSubset, OutCome, Hospital.Name), 1L)
+	} else {
+		if (num == "worst") {
+			pick <- tail(arrange(outcomeSubset, OutCome, Hospital.Name), 1L)
+		} else {
+				pick <- tail(head(arrange(outcomeSubset, 
+							OutCome, Hospital.Name), num), 1L)
+		}
+	}
+	pick$Hospital.Name
 }
 
 ##TEST RESULTS: 
-##> best("TX","heart attack")
-##[1] "CYPRESS FAIRBANKS MEDICAL CENTER"
-
-##> best("TX","heart failure")
-##[1] "FORT DUNCAN MEDICAL CENTER"
-
-##> best("MD", "heart attack")
-##[1] "JOHNS HOPKINS HOSPITAL, THE"
-
-##> best("MD", "pneumonia")
-##[1] "GREATER BALTIMORE MEDICAL CENTER"
-
-##> best("BB", "heart attack")
-##Error in best("BB", "heart attack") : invalid state
-
-##> best("NY", "hert attack")
-##Error in best("NY", "hert attack") : invalid outcome
+##rankhospital("TX", "heart failure", 4)
+##[1] "DETAR HOSPITAL NAVARRO"
+##> rankhospital("MD", "heart attack", "worst")
+##[1] "HARFORD MEMORIAL HOSPITAL"
+##> rankhospital("MN", "heart attack", 5000)
+##[1] NA
